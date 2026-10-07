@@ -1,5 +1,35 @@
-from sqlalchemy import create_engine, text
+import os
+from collections.abc import Generator
 
-DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/loan_db"
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-engine = create_engine(DATABASE_URL)
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg://postgres:postgres@localhost:5432/loan_db",
+)
+
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+)
+
+SessionLocal = sessionmaker(
+    bind=engine,
+    class_=Session,
+    autoflush=False,
+    autocommit=False,
+)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+def get_db() -> Generator[Session, None, None]:
+    db = SessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()
