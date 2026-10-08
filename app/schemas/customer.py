@@ -23,12 +23,12 @@ class CustomerCreate(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, value: str) -> str:
-        if not all(
+        if not value or not all(
             character.isalpha() or character == " "
             for character in value
         ):
             raise ValueError(
-                "Name must contain only letters and spaces"
+                "must contain only letters and spaces"
             )
 
         return value
@@ -36,9 +36,9 @@ class CustomerCreate(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, value: str) -> str:
-        if not value.isdigit() or len(value) != 10:
+        if not value.isascii() or not value.isdigit() or len(value) != 10:
             raise ValueError(
-                "Phone must contain exactly 10 digits"
+                "must be exactly 10 digits"
             )
 
         return value
@@ -48,7 +48,7 @@ class CustomerCreate(BaseModel):
     def validate_date_of_birth(cls, value: date) -> date:
         if value >= date.today():
             raise ValueError(
-                "Date of birth must be in the past"
+                "must be in the past"
             )
 
         return value

@@ -1,8 +1,8 @@
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Date, Numeric, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import CheckConstraint, Date, Numeric, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -14,6 +14,10 @@ class Customer(Base):
         UniqueConstraint(
             "email",
             name="uq_customers_email",
+        ),
+        CheckConstraint(
+            "monthly_income > 0",
+            name="ck_customers_monthly_income_positive",
         ),
     )
 
@@ -45,4 +49,9 @@ class Customer(Base):
     monthly_income: Mapped[Decimal] = mapped_column(
         Numeric(12, 2),
         nullable=False,
+    )
+
+    loans: Mapped[list["Loan"]] = relationship(
+        back_populates="customer",
+        cascade="all, delete-orphan",
     )

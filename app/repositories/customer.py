@@ -8,7 +8,6 @@ from app.schemas.customer import CustomerCreate
 
 
 class CustomerRepository:
-
     @staticmethod
     def create(
         db: Session,
