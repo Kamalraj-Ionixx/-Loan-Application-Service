@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug FastAPI",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "app.main:app",
+                "--reload"
+            ],
+            "cwd": "${workspaceFolder}/Loan_Application_Service",
+            "console": "integratedTerminal",
+            "env": {
+                "DATABASE_URL": "postgresql+psycopg://postgres:postgres@localhost:5432/loan_db"
+            },
+            "justMyCode": true
+        }
+    ]
+}
