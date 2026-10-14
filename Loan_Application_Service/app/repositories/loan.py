@@ -1,4 +1,3 @@
-
 from datetime import date
 from decimal import Decimal
 
@@ -85,12 +84,8 @@ class LoanRepository:
         """Calculate application counts and approved loan totals."""
         loans = self.get_customer_loans(customer_id)
 
-        approved_loans = [
-            loan for loan in loans if loan.status == LoanStatus.APPROVED
-        ]
-        rejected_loans = [
-            loan for loan in loans if loan.status == LoanStatus.REJECTED
-        ]
+        approved_loans = [loan for loan in loans if loan.status == LoanStatus.APPROVED]
+        rejected_loans = [loan for loan in loans if loan.status == LoanStatus.REJECTED]
 
         total_approved_amount = sum(
             (loan.amount for loan in approved_loans),
@@ -98,11 +93,7 @@ class LoanRepository:
         )
 
         total_monthly_emi = sum(
-            (
-                loan.emi
-                for loan in approved_loans
-                if loan.emi is not None
-            ),
+            (loan.emi for loan in approved_loans if loan.emi is not None),
             start=Decimal("0.00"),
         )
 

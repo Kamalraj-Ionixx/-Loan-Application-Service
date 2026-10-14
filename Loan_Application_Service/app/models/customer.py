@@ -51,7 +51,7 @@ class Customer(Base):
         nullable=False,
     )
 
-    loans: Mapped[list["Loan"]] = relationship(
+    loans: Mapped[list["Loan"]] = relationship(  # noqa: F821
         back_populates="customer",
         cascade="all, delete-orphan",
     )
