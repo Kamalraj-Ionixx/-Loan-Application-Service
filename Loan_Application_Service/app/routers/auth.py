@@ -3,9 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.dependencies import DbSession
 from app.models.user import User
 from app.repositories.auth import (
     DuplicateRegistrationError,
@@ -28,7 +27,7 @@ router = APIRouter(
 )
 def register_customer(
     registration: UserRegistration,
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
 ) -> dict[str, str | int]:
     service = AuthService(RegistrationRepository(db))
 
@@ -58,7 +57,7 @@ def register_customer(
 )
 def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
 ) -> TokenResponse:
     email = form_data.username.strip().lower()
 

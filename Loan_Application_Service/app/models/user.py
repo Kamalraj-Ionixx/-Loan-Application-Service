@@ -59,6 +59,6 @@ class User(Base):
         unique=True,
     )
 
-    customer: Mapped["Customer | None"] = relationship(
+    customer: Mapped["Customer | None"] = relationship(  # noqa: F821
         "Customer",
     )

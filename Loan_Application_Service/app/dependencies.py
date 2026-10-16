@@ -10,12 +10,14 @@ from app.models.user import User
 from app.security import decode_access_token
 
 
+DbSession = Annotated[Session, Depends(get_db)]
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
 def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
 ) -> User:
     unauthorized = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
