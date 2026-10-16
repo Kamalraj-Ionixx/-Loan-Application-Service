@@ -1,5 +1,4 @@
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.customer import Customer
@@ -11,6 +10,8 @@ class DuplicateCustomerEmailError(Exception):
 
 
 class CustomerRepository:
+    """Database operations for customers. Never commits; the service owns the transaction."""
+
     def __init__(self, db: Session) -> None:
         self.db = db
 
@@ -19,51 +20,32 @@ class CustomerRepository:
         user: User,
         customer_data: dict,
     ) -> Customer:
-        try:
-            if user.customer_id is not None:
-                raise ValueError("Customer profile already exists.")
+        if user.customer_id is not None:
+            raise ValueError("Customer profile already exists.")
 
-            email = str(customer_data["email"]).strip().lower()
+        email = str(customer_data["email"]).strip().lower()
 
-            if email != user.email.strip().lower():
-                raise ValueError(
-                    "Customer profile email must match the registered email."
-                )
+        if email != user.email.strip().lower():
+            raise ValueError("Customer profile email must match the registered email.")
 
-            existing_customer = self.db.scalar(
-                select(Customer).where(Customer.email == email)
-            )
+        existing_customer = self.db.scalar(
+            select(Customer).where(Customer.email == email)
+        )
+        if existing_customer is not None:
+            raise DuplicateCustomerEmailError
 
-            if existing_customer is not None:
-                raise DuplicateCustomerEmailError
+        customer = Customer(
+            name=customer_data["name"],
+            email=email,
+            phone=customer_data["phone"],
+            date_of_birth=customer_data["date_of_birth"],
+            monthly_income=customer_data["monthly_income"],
+        )
+        self.db.add(customer)
+        self.db.flush()
 
-            customer = Customer(
-                name=customer_data["name"],
-                email=email,
-                phone=customer_data["phone"],
-                date_of_birth=customer_data["date_of_birth"],
-                monthly_income=customer_data["monthly_income"],
-            )
-
-            self.db.add(customer)
-            self.db.flush()
-
-            user.customer_id = customer.id
-
-            self.db.commit()
-            self.db.refresh(customer)
-
-            return customer
-
-        except (ValueError, DuplicateCustomerEmailError):
-            self.db.rollback()
-            raise
-        except IntegrityError as exc:
-            self.db.rollback()
-            raise DuplicateCustomerEmailError from exc
-        except Exception:
-            self.db.rollback()
-            raise
+        user.customer_id = customer.id
+        return customer
 
     def get_by_id(self, customer_id: int) -> Customer | None:
         return self.db.get(Customer, customer_id)

@@ -47,6 +47,14 @@ class LoanResponse(BaseModel):
     )
 
 
+class LoanPage(BaseModel):
+    items: list[LoanResponse]
+    page: int
+    size: int
+    total: int
+    pages: int
+
+
 class LoanSummaryResponse(BaseModel):
     customer_id: int
     customer_name: str

@@ -49,6 +49,7 @@ A REST API built with **FastAPI**, **SQLAlchemy**, and **PostgreSQL** to manage 
 | Method | Endpoint                          | Description                  | Roles            |
 |--------|-----------------------------------|------------------------------|------------------|
 | POST   | `/api/loans`                      | Submit a loan application    | CUSTOMER         |
+| GET    | `/api/loans?status=&page=&size=`  | Paginated loan list (officers: all, customers: own) | CUSTOMER, OFFICER|
 | GET    | `/api/loans/{id}`                 | Retrieve a loan              | CUSTOMER, OFFICER|
 | GET    | `/api/customers/{id}/loans`       | List a customer's loans      | CUSTOMER, OFFICER|
 | GET    | `/api/customers/{id}/summary`     | Customer loan summary        | CUSTOMER, OFFICER|

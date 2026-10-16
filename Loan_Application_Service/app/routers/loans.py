@@ -10,7 +10,7 @@ from app.models.customer import Customer
 from app.models.loan import LoanStatus
 from app.models.user import User
 from app.repositories.loan import LoanRepository
-from app.schemas.loan import LoanCreate, LoanResponse, LoanSummaryResponse
+from app.schemas.loan import LoanCreate, LoanPage, LoanResponse, LoanSummaryResponse
 from app.services.loan import LoanService
 
 router = APIRouter(tags=["Loans"])
@@ -108,6 +108,39 @@ def apply_for_loan(
     )
 
     return LoanResponse.model_validate(loan)
+
+
+@router.get(
+    "/api/loans",
+    response_model=LoanPage,
+)
+def list_loans(
+    user: CurrentUser,
+    service: LoanServiceDependency,
+    loan_status: Annotated[LoanStatus | None, Query(alias="status")] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    size: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> LoanPage:
+    """List loans page by page. Officers see all loans; customers only their own."""
+    if user.role == "OFFICER":
+        customer_id = None
+    elif user.customer_id is not None:
+        customer_id = user.customer_id
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Create your customer profile before accessing loans.",
+        )
+
+    result = service.list_loans(
+        customer_id=customer_id,
+        status=loan_status,
+        page=page,
+        size=size,
+    )
+    return LoanPage.model_validate(
+        {**result, "items": [LoanResponse.model_validate(i) for i in result["items"]]}
+    )
 
 
 @router.get(
