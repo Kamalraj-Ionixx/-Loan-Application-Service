@@ -1,10 +1,6 @@
-from typing import Annotated
+from fastapi import APIRouter, HTTPException, status
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-
-from app.database import get_db
-from app.dependencies import CurrentUser
+from app.dependencies import CurrentUser, DbSession
 from app.exceptions import NotFoundError
 from app.repositories.customer import (
     CustomerRepository,
@@ -27,7 +23,7 @@ router = APIRouter(
 def create_customer(
     customer_data: CustomerCreate,
     user: CurrentUser,
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
 ) -> CustomerResponse:
     if user.role != "CUSTOMER":
         raise HTTPException(
@@ -72,7 +68,7 @@ def create_customer(
 def get_customer(
     customer_id: int,
     user: CurrentUser,
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
 ) -> CustomerResponse:
     customer = CustomerService(CustomerRepository(db)).get_customer(customer_id)
 

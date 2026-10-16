@@ -1,4 +1,3 @@
-
 # Loan Application Service
 
 A REST API built with **FastAPI**, **SQLAlchemy**, and **PostgreSQL** to manage customer records and loan applications with JWT authentication and role-based access control.

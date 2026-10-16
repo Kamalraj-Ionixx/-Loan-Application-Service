@@ -4,8 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
 
-from app.database import get_db
-from app.dependencies import CurrentUser
+from app.dependencies import CurrentUser, DbSession
 from app.exceptions import NotFoundError
 from app.models.customer import Customer
 from app.models.loan import LoanStatus
@@ -18,7 +17,7 @@ router = APIRouter(tags=["Loans"])
 
 
 def get_loan_service(
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
 ) -> LoanService:
     """Create the loan service using the request's database session."""
     return LoanService(LoanRepository(db))
@@ -29,7 +28,7 @@ LoanServiceDependency = Annotated[LoanService, Depends(get_loan_service)]
 
 def get_linked_customer(
     user: CurrentUser,
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
 ) -> Customer:
     """Return the authenticated customer's linked profile."""
     if user.role != "CUSTOMER":
@@ -90,7 +89,7 @@ def apply_for_loan(
     loan_data: LoanCreate,
     customer: LinkedCustomer,
     service: LoanServiceDependency,
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
 ) -> LoanResponse:
     """Apply for a loan for the authenticated customer."""
     if loan_data.customer_id != customer.id:
@@ -118,7 +117,7 @@ def apply_for_loan(
 def get_loan(
     loan_id: Annotated[int, Path(gt=0)],
     user: CurrentUser,
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
 ) -> LoanResponse:
     """Retrieve a loan. Officers can view any; customers only their own."""
     repository = LoanRepository(db)
@@ -144,7 +143,7 @@ def get_loan(
 def get_customer_loans(
     customer_id: Annotated[int, Path(gt=0)],
     user: CurrentUser,
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
     loan_status: Annotated[
         LoanStatus | None,
         Query(alias="status"),
@@ -168,7 +167,7 @@ def get_customer_loans(
 def get_customer_loan_summary(
     customer_id: Annotated[int, Path(gt=0)],
     user: CurrentUser,
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
 ) -> LoanSummaryResponse:
     """Calculate a customer's loan summary. Officers can view any."""
     customer = resolve_customer(user, customer_id, db)
