@@ -62,9 +62,7 @@ def login(
 ) -> TokenResponse:
     email = form_data.username.strip().lower()
 
-    user = db.scalar(
-        select(User).where(func.lower(User.email) == email)
-    )
+    user = db.scalar(select(User).where(func.lower(User.email) == email))
 
     invalid_credentials = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

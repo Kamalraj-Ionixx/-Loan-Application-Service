@@ -86,6 +86,6 @@ class Loan(Base):
         nullable=False,
     )
 
-    customer: Mapped["Customer"] = relationship(
+    customer: Mapped["Customer"] = relationship(  # noqa: F821
         back_populates="loans",
     )

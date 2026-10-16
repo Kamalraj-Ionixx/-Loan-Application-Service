@@ -84,7 +84,11 @@ async def request_id_middleware(
             request.method,
             request.url.path,
             response.status_code,
-            extra={**log_extra, "status_code": response.status_code, "duration_ms": duration_ms},
+            extra={
+                **log_extra,
+                "status_code": response.status_code,
+                "duration_ms": duration_ms,
+            },
         )
         return response
 
@@ -248,10 +252,9 @@ def health():
         }
 
 
-    
-from app.routers.auth import router as auth_router
-from app.routers.customers import router as customer_router
-from app.routers.loans import router as loan_router
+from app.routers.auth import router as auth_router  # noqa: E402
+from app.routers.customers import router as customer_router  # noqa: E402
+from app.routers.loans import router as loan_router  # noqa: E402
 
 app.include_router(customer_router)
 app.include_router(loan_router)

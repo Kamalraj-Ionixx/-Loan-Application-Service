@@ -20,10 +20,7 @@ def calculate_age(date_of_birth: date) -> int:
     return (
         today.year
         - date_of_birth.year
-        - (
-            (today.month, today.day)
-            < (date_of_birth.month, date_of_birth.day)
-        )
+        - ((today.month, today.day) < (date_of_birth.month, date_of_birth.day))
     )
 
 
@@ -75,9 +72,7 @@ class LoanService:
     ) -> Loan:
         interest_rate = INTEREST_RATES[tenure_months]
 
-        approved_loan_count = self.repository.count_approved_loans(
-            customer.id
-        )
+        approved_loan_count = self.repository.count_approved_loans(customer.id)
 
         eligible, rejection_reason = check_eligibility(
             customer=customer,
@@ -85,15 +80,9 @@ class LoanService:
             approved_loan_count=approved_loan_count,
         )
 
-        loan_status = (
-            LoanStatus.APPROVED if eligible else LoanStatus.REJECTED
-        )
+        loan_status = LoanStatus.APPROVED if eligible else LoanStatus.REJECTED
 
-        emi = (
-            calculate_emi(amount, interest_rate, tenure_months)
-            if eligible
-            else None
-        )
+        emi = calculate_emi(amount, interest_rate, tenure_months) if eligible else None
 
         return self.repository.create(
             customer_id=customer.id,

@@ -24,8 +24,8 @@ os.environ.setdefault(
     "test-only-secret-key-long-enough-for-hs256",
 )
 
-from app.database import get_db
-from app.main import app
+from app.database import get_db  # noqa: E402
+from app.main import app  # noqa: E402
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -68,6 +68,39 @@ def client() -> Generator[TestClient, None, None]:
     try:
         with TestClient(app) as test_client:
             authenticate_customer(test_client)
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
+        engine.dispose()
+
+
+@pytest.fixture
+def unauthenticated_client() -> Generator[TestClient, None, None]:
+    engine = create_engine(TEST_DATABASE_URL, pool_pre_ping=True)
+
+    testing_session = sessionmaker(
+        bind=engine,
+        class_=Session,
+        autoflush=False,
+        autocommit=False,
+    )
+
+    with engine.begin() as connection:
+        connection.execute(
+            text("TRUNCATE TABLE loans, customers, users RESTART IDENTITY CASCADE")
+        )
+
+    def override_get_db() -> Generator[Session, None, None]:
+        db = testing_session()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    try:
+        with TestClient(app) as test_client:
             yield test_client
     finally:
         app.dependency_overrides.clear()

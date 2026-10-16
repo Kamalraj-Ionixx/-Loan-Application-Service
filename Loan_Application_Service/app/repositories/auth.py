@@ -22,9 +22,7 @@ class RegistrationRepository:
 
         try:
             existing_user = self.db.scalar(
-                select(User).where(
-                    func.lower(User.email) == normalized_email
-                )
+                select(User).where(func.lower(User.email) == normalized_email)
             )
 
             if existing_user is not None:
