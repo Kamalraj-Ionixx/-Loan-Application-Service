@@ -19,6 +19,24 @@ def authenticate_customer(client, email: str = "arun@example.com") -> None:
     client.headers["Authorization"] = f"Bearer {login.json()['access_token']}"
 
 
+def authenticate_officer(client, email: str = "officer@example.com") -> None:
+    from sqlalchemy import update
+
+    from app.database import SessionLocal
+    from app.models.user import User
+
+    password = "test-password-123"
+    client.post("/auth/register", json={"email": email, "password": password})
+
+    with SessionLocal() as db:
+        db.execute(update(User).where(User.email == email).values(role="OFFICER"))
+        db.commit()
+
+    login = client.post("/auth/login", data={"username": email, "password": password})
+    assert login.status_code == 200, login.text
+    client.headers["Authorization"] = f"Bearer {login.json()['access_token']}"
+
+
 def valid_customer_payload(**overrides: object) -> dict:
     payload = {
         "name": "Arun Kumar",

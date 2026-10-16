@@ -1,3 +1,4 @@
+import math
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -64,33 +65,68 @@ class LoanService:
     def __init__(self, repository: LoanRepository) -> None:
         self.repository = repository
 
+    def list_loans(
+        self,
+        *,
+        customer_id: int | None,
+        status: LoanStatus | None,
+        page: int,
+        size: int,
+    ) -> dict:
+        items, total = self.repository.list_loans(
+            customer_id=customer_id,
+            status=status,
+            offset=(page - 1) * size,
+            limit=size,
+        )
+        return {
+            "items": items,
+            "page": page,
+            "size": size,
+            "total": total,
+            "pages": math.ceil(total / size) if total else 0,
+        }
+
     def apply_loan(
         self,
         customer: Customer,
         amount: Decimal,
         tenure_months: int,
     ) -> Loan:
+        db = self.repository.db
         interest_rate = INTEREST_RATES[tenure_months]
 
-        approved_loan_count = self.repository.count_approved_loans(customer.id)
+        try:
+            self.repository.lock_customer(customer.id)
+            approved_loan_count = self.repository.count_approved_loans(customer.id)
 
-        eligible, rejection_reason = check_eligibility(
-            customer=customer,
-            amount=amount,
-            approved_loan_count=approved_loan_count,
-        )
+            eligible, rejection_reason = check_eligibility(
+                customer=customer,
+                amount=amount,
+                approved_loan_count=approved_loan_count,
+            )
 
-        loan_status = LoanStatus.APPROVED if eligible else LoanStatus.REJECTED
+            loan_status = LoanStatus.APPROVED if eligible else LoanStatus.REJECTED
+            emi = (
+                calculate_emi(amount, interest_rate, tenure_months)
+                if eligible
+                else None
+            )
 
-        emi = calculate_emi(amount, interest_rate, tenure_months) if eligible else None
+            loan = self.repository.create(
+                customer_id=customer.id,
+                amount=amount,
+                tenure_months=tenure_months,
+                interest_rate=interest_rate,
+                emi=emi,
+                status=loan_status,
+                rejection_reason=rejection_reason,
+                applied_on=date.today(),
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
-        return self.repository.create(
-            customer_id=customer.id,
-            amount=amount,
-            tenure_months=tenure_months,
-            interest_rate=interest_rate,
-            emi=emi,
-            status=loan_status,
-            rejection_reason=rejection_reason,
-            applied_on=date.today(),
-        )
+        db.refresh(loan)
+        return loan

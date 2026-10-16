@@ -1,14 +1,15 @@
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
+from app.models.customer import Customer
 from app.models.loan import Loan, LoanStatus
 
 
 class LoanRepository:
-    """Database operations for loans."""
+    """Database operations for loans. Never commits; the service owns the transaction."""
 
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -25,7 +26,6 @@ class LoanRepository:
         rejection_reason: str | None,
         applied_on: date,
     ) -> Loan:
-        """Create and persist a loan."""
         loan = Loan(
             customer_id=customer_id,
             amount=amount,
@@ -36,23 +36,20 @@ class LoanRepository:
             rejection_reason=rejection_reason,
             applied_on=applied_on,
         )
-
-        try:
-            self.db.add(loan)
-            self.db.commit()
-            self.db.refresh(loan)
-        except Exception:
-            self.db.rollback()
-            raise
-
+        self.db.add(loan)
+        self.db.flush()
         return loan
 
+    def lock_customer(self, customer_id: int) -> None:
+        """Lock the customer row so concurrent applications can't both pass the 2-loan limit."""
+        self.db.execute(
+            select(Customer.id).where(Customer.id == customer_id).with_for_update()
+        )
+
     def get_by_id(self, loan_id: int) -> Loan | None:
-        """Find a loan by its primary key."""
         return self.db.get(Loan, loan_id)
 
     def count_approved_loans(self, customer_id: int) -> int:
-        """Count approved loans belonging to a customer."""
         statement = (
             select(func.count())
             .select_from(Loan)
@@ -61,16 +58,13 @@ class LoanRepository:
                 Loan.status == LoanStatus.APPROVED,
             )
         )
-
-        count = self.db.scalar(statement)
-        return count or 0
+        return self.db.scalar(statement) or 0
 
     def get_customer_loans(
         self,
         customer_id: int,
         status: LoanStatus | None = None,
     ) -> list[Loan]:
-        """Return a customer's loans, optionally filtered by status."""
         statement = select(Loan).where(Loan.customer_id == customer_id)
 
         if status is not None:
@@ -80,27 +74,53 @@ class LoanRepository:
 
         return list(self.db.scalars(statement).all())
 
+    def list_loans(
+        self,
+        *,
+        customer_id: int | None,
+        status: LoanStatus | None,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[Loan], int]:
+        """Return one page of loans plus the total count matching the filters."""
+        filters = []
+        if customer_id is not None:
+            filters.append(Loan.customer_id == customer_id)
+        if status is not None:
+            filters.append(Loan.status == status)
+
+        total = self.db.scalar(select(func.count()).select_from(Loan).where(*filters))
+
+        statement = (
+            select(Loan)
+            .where(*filters)
+            .order_by(Loan.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        items = list(self.db.scalars(statement).all())
+
+        return items, total or 0
+
     def get_summary_totals(self, customer_id: int) -> dict:
-        """Calculate application counts and approved loan totals."""
-        loans = self.get_customer_loans(customer_id)
+        """Aggregate counts and approved totals in one SQL query."""
+        approved = Loan.status == LoanStatus.APPROVED
+        rejected = Loan.status == LoanStatus.REJECTED
 
-        approved_loans = [loan for loan in loans if loan.status == LoanStatus.APPROVED]
-        rejected_loans = [loan for loan in loans if loan.status == LoanStatus.REJECTED]
-
-        total_approved_amount = sum(
-            (loan.amount for loan in approved_loans),
-            start=Decimal("0.00"),
-        )
-
-        total_monthly_emi = sum(
-            (loan.emi for loan in approved_loans if loan.emi is not None),
-            start=Decimal("0.00"),
-        )
+        row = self.db.execute(
+            select(
+                func.count(Loan.id),
+                func.count(case((approved, 1))),
+                func.count(case((rejected, 1))),
+                func.coalesce(func.sum(case((approved, Loan.amount))), 0),
+                func.coalesce(func.sum(case((approved, Loan.emi))), 0),
+            ).where(Loan.customer_id == customer_id)
+        ).one()
 
         return {
-            "total_applications": len(loans),
-            "approved_count": len(approved_loans),
-            "rejected_count": len(rejected_loans),
-            "total_approved_amount": total_approved_amount,
-            "total_monthly_emi": total_monthly_emi,
+            "total_applications": row[0],
+            "approved_count": row[1],
+            "rejected_count": row[2],
+            "total_approved_amount": Decimal(row[3]).quantize(Decimal("0.01")),
+            "total_monthly_emi": Decimal(row[4]).quantize(Decimal("0.01")),
         }
