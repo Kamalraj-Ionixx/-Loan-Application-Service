@@ -23,7 +23,10 @@ def test_register_duplicate_email_returns_409(unauthenticated_client):
     )
 
     assert response.status_code == 409
-    assert response.json()["error"] == "CONFLICT"
+    body = response.json()
+    assert body["error"] == "DUPLICATE_EMAIL"
+    assert body["message"] == "An account with this email already exists."
+    assert body["request_id"]
 
 
 def test_register_short_password_returns_400(unauthenticated_client):

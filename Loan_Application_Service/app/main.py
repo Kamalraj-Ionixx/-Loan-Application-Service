@@ -172,6 +172,10 @@ async def http_exception_handler(
         ),
     )
 
+    # Routes may raise a deliberate public code, e.g. detail={"error": "DUPLICATE_EMAIL", ...}
+    if isinstance(exc.detail, dict) and {"error", "message"} <= exc.detail.keys():
+        error, message = exc.detail["error"], exc.detail["message"]
+
     return JSONResponse(
         status_code=exc.status_code,
         content={

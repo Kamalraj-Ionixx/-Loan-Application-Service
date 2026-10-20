@@ -64,84 +64,81 @@ A REST API built with **FastAPI**, **SQLAlchemy**, and **PostgreSQL** to manage 
 - **CUSTOMER** — can only access their own data
 - **OFFICER** — can view any customer's profile, loans, and summary (read-only)
 
-## Prerequisites
+## Quick Start (Docker)
 
-- Python 3.12 or later
-- PostgreSQL
-- uv package manager — [installation guide](https://docs.astral.sh/uv/getting-started/installation/)
-
-## Installation
+The only requirements are **Git** and **Docker Desktop**. You don't need Python or PostgreSQL installed.
 
 ### 1. Clone the repository
 
 ```bash
-git clone <repository-url> loan-application-service
-cd loan-application-service
+git clone https://github.com/Kamalraj-Ionixx/-Loan-Application-Service.git loan-app
+cd loan-app/Loan_Application_Service
 ```
 
-### 2. Install dependencies
+The trailing `loan-app` gives the folder a simple name. A folder name starting with `-` can be mistaken for a command option.
+
+### 2. Create your `.env`
 
 ```bash
-uv sync --project ./Loan_Application_Service
+cp .env.example .env
 ```
 
-### 3. Configure environment
+Then edit `.env` and set:
 
-Copy the example env file and update values:
+- `POSTGRES_PASSWORD`: any password for the local database
+- `JWT_SECRET_KEY`: a long random secret, for example generated with
+  `python -c "import secrets; print(secrets.token_urlsafe(48))"`
+
+Secrets are read only from the environment. `.env` is gitignored, so never commit it.
+
+### 3. Start the API and the database
 
 ```bash
-cp Loan_Application_Service/.env.example Loan_Application_Service/.env
+docker compose up -d --build
 ```
 
-Set the following in `.env`:
+This builds the API image, starts PostgreSQL, waits until it is healthy, runs the
+Alembic migrations, and starts FastAPI.
 
-```env
-DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/loan_db
-JWT_SECRET_KEY=<generate-a-random-secret>
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-```
-
-Generate a secret key:
-
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(48))"
-```
-
-Do not commit `.env` files to version control.
-
-### 4. Start PostgreSQL
-
-Using the included Docker Compose file:
-
-```bash
-docker compose -f ./Loan_Application_Service/docker-compose.yml up -d db
-```
-
-Create the test database:
-
-```bash
-docker compose -f ./Loan_Application_Service/docker-compose.yml exec db psql -U postgres -c "CREATE DATABASE loan_test_db;"
-```
-
-### 5. Apply database migrations
-
-```bash
-uv run --project ./Loan_Application_Service alembic -c ./Loan_Application_Service/alembic.ini upgrade head
-```
-
-## Running the Application
-
-```bash
-cd Loan_Application_Service
-uv run uvicorn app.main:app --reload
-```
-
-The application will be available at:
+### 4. Open the app
 
 - **Swagger UI:** http://127.0.0.1:8000/docs
 - **ReDoc:** http://127.0.0.1:8000/redoc
-- **Health check:** http://127.0.0.1:8000/health
+- **Health check:** http://127.0.0.1:8000/health returns `{"status":"ok","database":"ok"}`
+
+Useful commands:
+
+```bash
+docker compose ps            # container status
+docker compose logs -f api   # structured JSON request logs
+docker compose down          # stop (data is kept in the postgres_data volume)
+```
+
+### Creating an officer account
+
+Registration always creates `CUSTOMER` accounts. To create an `OFFICER`, register
+normally and then promote the user in the database:
+
+```bash
+docker compose exec db psql -U postgres -d loan_db -c "UPDATE users SET role='OFFICER' WHERE email='officer@example.com';"
+```
+
+## Local Development
+
+To edit code with auto-reload, you also need **Python 3.12+** and
+[uv](https://docs.astral.sh/uv/getting-started/installation/). Run the database in
+Docker and the API locally:
+
+```bash
+docker compose up -d db
+uv sync
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload
+```
+
+`DATABASE_URL` in `.env` must point at `localhost:5432`. The example file already
+does. Stop the `api` container first (`docker compose stop api`), because only one
+process can use port 8000.
 
 ## API Usage
 
@@ -273,30 +270,46 @@ Loan_Application_Service/
 │   ├── main.py          # FastAPI app, middleware, error handlers
 │   └── security.py      # JWT + password hashing
 ├── alembic/             # Database migrations
+├── docs/adr/            # Architecture Decision Records
 ├── tests/
-│   ├── api/             # Integration tests
-│   └── unit/            # Unit tests
+│   ├── api/             # API tests (success and failure paths)
+│   └── unit/            # Unit tests (EMI, eligibility)
 ├── .env.example
 ├── .pre-commit-config.yaml
+├── Dockerfile
 ├── docker-compose.yml
 └── pyproject.toml
+
+.github/workflows/ci.yml # CI pipeline (at the repository root)
 ```
 
 ## Testing
 
-Run all tests:
+Tests use a separate `loan_test_db` database. Create it once:
 
 ```bash
-uv run pytest
+docker compose up -d db
+docker compose exec db psql -U postgres -c "CREATE DATABASE loan_test_db;"
 ```
 
-With verbose output:
+Run the tests, with coverage:
 
 ```bash
-uv run pytest -v
+uv run pytest --cov=app
 ```
 
-Tests require a separate `loan_test_db` database. The test fixtures automatically apply migrations and clean data between tests.
+The fixtures apply migrations automatically and clear data between tests.
+
+## Continuous Integration
+
+GitHub Actions runs on every pull request and every push to `main`:
+`ruff check`, then `ruff format --check`, then `pytest` with at least 80% coverage
+against a temporary PostgreSQL service. Results appear on the PR and in the
+**Actions** tab.
+
+## Architecture Decisions
+
+- [ADR 0001: JWT vs session auth](docs/adr/0001-jwt-vs-session-auth.md)
 
 ## Code Quality
 
