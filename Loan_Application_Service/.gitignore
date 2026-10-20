@@ -1,4 +1,3 @@
-```gitignore
 # Environment secrets
 .env
 .env.*
@@ -19,4 +18,3 @@ htmlcov/
 # Tool caches
 .ruff_cache/
 .mypy_cache/
-```
